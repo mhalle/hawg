@@ -22,7 +22,8 @@ def main(conf):
     writeModelInfo(modelInfo)
 
 def writeModelInfo(mi):
-    writer = csv.DictWriter(sys.stdout, dialect='excel-tab', fieldnames=['labelNumber', 'id', 'textLabel', 'color', 'modelFilename', 'labelFilename'])
+    writer = csv.DictWriter(sys.stdout, dialect='excel-tab', 
+        fieldnames=['labelNumber', 'id', 'textLabel', 'color', 'modelFilename', 'labelFilename'])
     writer.writeheader()
     for m in sorted(mi.values(), key=lambda x: x.id):
         writer.writerow(m.__dict__)
@@ -40,9 +41,15 @@ def parseModelFilename(m):
     i.modelFilename = m
     modelBasename = os.path.basename(m)
     match = re.match(r'Model_([-0-9]+)_(.*?)\.vtk', modelBasename)
-    i.labelNumber = match.group(1)
-    i.textLabel = match.group(2).replace('_', ' ')
-    i.id = match.group(2)
+    if match:
+        i.labelNumber = match.group(1)
+        i.textLabel = match.group(2).replace('_', ' ')
+        i.id = match.group(2)
+    else:
+        match = re.match(r'^(.*?)-([0-9]+)', modelBasename)
+        i.labelNumber = match.group(2)
+        i.textLabel = match.group(1).replace('_', ' ')
+        i.id = match.group(1)
     return i
 
 def getModelInfo(modelfiles):

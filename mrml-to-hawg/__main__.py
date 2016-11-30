@@ -71,12 +71,13 @@ def getNameFromMRML(table, node):
 
     if not node.has_key('associatedNodeRef'):
         return node['name']
-
-    
+        
     associatedNodeRef = node['associatedNodeRef']
     associatedNodeRefName = table[associatedNodeRef]['name']
     if associatedNodeRefName.startswith('Model_'):
         return associatedNodeRefName.split('_', 2)[2];
+    else:
+        return associatedNodeRefName
     
 
 def convertColorToCSS3(r, g, b, t=255):
@@ -303,10 +304,13 @@ def expandHAWG(proto, rootURL=''):
                     'authoritative': False
                     }]
             n['sourceSelector'] = sourceSelector
-            # del n['labelImage']
+            del n['labelImage']
             del n['labelNumber']
             del n['modelFilename']
 
+    for n in output.values():
+        if n['@type'] in ('Group'):
+            del n['labelImage']
 
     header['backgroundImage'] = newImages
 
@@ -398,6 +402,6 @@ if __name__ == '__main__':
 
     expandedHAWG = expandHAWG(protoHAWG, conf.rooturl)
     verify(expandedHAWG)
-    with open(conf.output, 'wU') as fp:
+    with open(conf.output, 'w+') as fp:
         json.dump(expandedHAWG.values(), fp, sort_keys=True,
                         indent=4, separators=(',', ': '))
