@@ -71,14 +71,13 @@ def getNameFromMRML(table, node):
 
     if not node.has_key('associatedNodeRef'):
         return node['name']
-        
+
     associatedNodeRef = node['associatedNodeRef']
     associatedNodeRefName = table[associatedNodeRef]['name']
     if associatedNodeRefName.startswith('Model_'):
-        return associatedNodeRefName.split('_', 2)[2];
+        return associatedNodeRefName.split('_', 2)[2]
     else:
         return associatedNodeRefName
-    
 
 def convertColorToCSS3(r, g, b, t=255):
     return 'rgba(%d,%d,%d,%f)' % (int(r), int(g), int(b), float(t)/255.0)
@@ -158,10 +157,13 @@ def buildProtoHAWGNodes(mrmlTable, atlasName, labelDir, modelDir, imageDir):
             fn = os.path.join(imageDir, os.path.basename(fn))
         headerNode['backgroundImage'].append(fn)
 
-    fn = labelVolumes[0]['fileName']
-    if labelDir:
-        fn = os.path.join(labelDir, os.path.basename(fn))
-    labelFilename = headerNode['labelImage'] = fn
+    if len(labelVolumes) == 0:
+        labelFilename = None
+    else:   
+        fn = labelVolumes[0]['fileName']
+        if labelDir:
+            fn = os.path.join(labelDir, os.path.basename(fn))
+        labelFilename = headerNode['labelImage'] = fn
 
     MRMLToHAWGId = createMRMLIdToHAWGIdTable(mrmlTable)
     defectiveNodes = set()
@@ -173,7 +175,7 @@ def buildProtoHAWGNodes(mrmlTable, atlasName, labelDir, modelDir, imageDir):
 
 
         node = {'@id' : hawgId }
-        textName = getNameFromMRML(mrmlTable, t)
+        textName = getNameFromMRML(mrmlTable, t).replace('_', ' ')
         setIfNotNone(node, 'name', textName)
         setIfNotNone(node, 'color', getColorFromMRML(mrmlTable, t))
         setIfNotNone(node, 'modelFilename', getModelFilenameFromMRML(mrmlTable, t))
@@ -269,16 +271,21 @@ def expandHAWG(proto, rootURL=''):
                 del n['color']
 
     # create datasources
-    labelDataSourceId = '#_LabelDS'
-    labelDataSource = {
-        '@id': labelDataSourceId,
-        '@type': 'DataSource',
-        'mimeType': 'application/x-nrrd',
-        'source': header['labelImage'],
-        'baseURL': '#_urlBase'
+    if header.has_key('labelImage'):
+
+        labelDataSourceId = '#_LabelDS'
+        labelDataSource = {
+            '@id': labelDataSourceId,
+            '@type': 'DataSource',
+            'source': header['labelImage'],
+            'mimeType': 'application/x-nrrd',
+            'baseURL': '#_urlBase'
         }
-    insertNode(output, labelDataSource)
-    del header['labelImage']
+        del header['labelImage']
+        insertNode(output, labelDataSource)
+        del header['labelImage']
+    else:
+        labelDataSource = None
 
     for n in output.values():
         if n['@type'] in ('Structure'):
@@ -293,16 +300,18 @@ def expandHAWG(proto, rootURL=''):
             insertNode(output, modelDataSource)
             sourceSelector = [
                 {
-                    '@type': [ 'Selector', 'LabelMapSelector'],
-                    'dataKey': int(n['labelNumber']),
-                    'dataSource': labelDataSourceId,
-                    'authoritative': True
-                    },
-                {
                     '@type': [ 'Selector', 'GeometrySelector'],
                     'dataSource': modelDataSourceId,
                     'authoritative': False
                     }]
+            if labelDataSource:
+                sourceSelector.append({
+                    '@type': [ 'Selector', 'LabelMapSelector'],
+                    'dataKey': int(n['labelNumber']),
+                    'dataSource': labelDataSourceId,
+                    'authoritative': True
+                })
+
             n['sourceSelector'] = sourceSelector
             del n['labelImage']
             del n['labelNumber']
@@ -315,7 +324,7 @@ def expandHAWG(proto, rootURL=''):
     header['backgroundImage'] = newImages
 
     return output
-        
+
 def setIfNotNone(d, attr, value):
     if value != None:
         d[attr] = value
